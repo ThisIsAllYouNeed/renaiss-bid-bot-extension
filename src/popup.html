@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Renaiss Auto Bid Bot</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Renaiss Auto Bid Bot</h2>
+        <p class="developer-credit">Developed by This Is All You Need</p>
+        <div class="setting">
+            <label for="risk-taker-checkbox">
+                <input type="checkbox" id="risk-taker-checkbox">
+                Risk Taker
+            </label>
+            <div class="description-box">
+                <span class="description-text">When enabled, targets ~100 bid points/day (high risk). Disabled: ~20 bid points/day (stable).</span>
+            </div>
+        </div>
+        <div class="setting">
+            <label for="dont-close-checkbox">
+                <input type="checkbox" id="dont-close-checkbox">
+                Don't Close Window
+            </label>
+            <div class="description-box">
+                <span class="description-text">Prevents the window from closing after scanning is complete.</span>
+            </div>
+        </div>
+        <div class="setting">
+            <button id="reloadButton">Re-scan Page</button>
+            <div class="description-box">
+                <p class="description-text button-description">Scans the current marketplace page to offer on all available cards.</p>
+            </div>
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>

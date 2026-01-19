@@ -1,0 +1,25 @@
+#helper-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: #1a1a1a;
+    color: white;
+    z-index: 9999;
+    padding: 10px;
+    border-bottom: 2px solid #3b82f6;
+    font-family: sans-serif;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+}
+.helper-btn {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-weight: bold;
+}
+.helper-btn:hover { background: #2563eb; }

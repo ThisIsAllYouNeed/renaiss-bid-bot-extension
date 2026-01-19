@@ -1,0 +1,54 @@
+{
+    "manifest_version": 3,
+    "name": "Renaiss Price Helper",
+    "version": "1.0",
+    "permissions": [
+        "activeTab",
+        "storage",
+        "scripting",
+        "tabs"
+    ],
+    "host_permissions": [
+        "https://www.renaiss.xyz/*",
+        "http://localhost:8000/*",
+        "https://localhost:8000/*",
+        "https://*.thisisallyouneed.com/*"
+    ],
+    "background": {
+        "service_worker": "src/service-worker.js"
+    },
+    "action": {
+        "default_popup": "src/popup.html"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://www.renaiss.xyz/card/*"
+            ],
+            "js": [
+                "src/config.js",
+                "src/utils.js",
+                "src/dom.js",
+                "src/api.js",
+                "src/ui.js",
+                "src/automation.js",
+                "src/main.js"
+            ],
+            "css": [
+                "src/styles.css"
+            ]
+        },
+        {
+            "matches": [
+                "https://www.renaiss.xyz/marketplace*"
+            ],
+            "exclude_matches": [
+                "https://www.renaiss.xyz/card/*"
+            ],
+            "js": [
+                "src/price-analyzer.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ]
+}
