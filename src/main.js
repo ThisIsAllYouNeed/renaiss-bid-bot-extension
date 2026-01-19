@@ -10,6 +10,12 @@ function isUserCurrentlyBidding(userAddress, bidders) {
     }
     return bidders.includes(userAddress);
 }
+function shortenAddress(address) {
+    if (!address) {
+        return '';
+    }
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
 
 async function init() {
     console.log("%c--- Renaiss Helper: Script Starting ---", "color: #3b82f6; font-size: 14px;");
@@ -20,7 +26,7 @@ async function init() {
             resolve({
                 isRiskTaker: result.isRiskTaker || false,
                 dontCloseWindow: result.dontCloseWindow || false,
-                userAddress: result.userAddress || ''
+                userAddress: shortenAddress(result.userAddress) || ''
             });
         });
     });
