@@ -21,7 +21,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const userAddressInput = document.getElementById('userAddress');
     const addressSavedSpan = document.getElementById('addressSaved');
 
+    if (!userAddressInput || !addressSavedSpan) {
+        console.error('Required DOM elements not found for address input');
+        return;
+    }
+
     chrome.storage.local.get(['userAddress'], (result) => {
+        if (chrome.runtime.lastError) {
+            console.error('Failed to load address:', chrome.runtime.lastError);
+            return;
+        }
         if (result.userAddress) {
             userAddressInput.value = result.userAddress;
             addressSavedSpan.classList.add('show');
@@ -32,7 +41,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Save address whenever user types
     userAddressInput.addEventListener('input', () => {
         const address = userAddressInput.value.trim();
-        chrome.storage.local.set({ userAddress: address });
+        chrome.storage.local.set({ userAddress: address }, () => {
+            if (chrome.runtime.lastError) {
+                console.error('Failed to save address:', chrome.runtime.lastError);
+            }
+        });
 
         // Show/hide the saved indicator
         if (address) {
