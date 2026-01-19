@@ -1,3 +1,16 @@
+/**
+ * Check if the user's address is currently bidding
+ * @param {string} userAddress - User's wallet address
+ * @param {string[]} bidders - Array of bidder addresses
+ * @returns {boolean} - True if userAddress is in bidders array
+ */
+function isUserCurrentlyBidding(userAddress, bidders) {
+    if (!userAddress || userAddress.trim() === '') {
+        return false;
+    }
+    return bidders.includes(userAddress);
+}
+
 async function init() {
     console.log("%c--- Renaiss Helper: Script Starting ---", "color: #3b82f6; font-size: 14px;");
 
