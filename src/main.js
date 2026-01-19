@@ -16,10 +16,11 @@ async function init() {
 
     // Load settings from storage
     const settings = await new Promise(resolve => {
-        chrome.storage.local.get(['isRiskTaker', 'dontCloseWindow'], (result) => {
+        chrome.storage.local.get(['isRiskTaker', 'dontCloseWindow', 'userAddress'], (result) => {
             resolve({
                 isRiskTaker: result.isRiskTaker || false,
-                dontCloseWindow: result.dontCloseWindow || false
+                dontCloseWindow: result.dontCloseWindow || false,
+                userAddress: result.userAddress || ''
             });
         });
     });
