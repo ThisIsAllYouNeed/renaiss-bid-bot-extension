@@ -49,28 +49,36 @@ async function init() {
     console.log("%c[DATA] Scraped Prices:", "color: #fbbf24", { fmv, targetOffer });
 
     // 3. UI and Automation
-    const autoOfferBtn = createHelperUI(fmv, list, targetOffer);
-
-    let offerComplete = new Promise((resolve) => {
-        autoOfferBtn.addEventListener('click', async () => {
-            await executeAutoOffer(targetOffer, paths);
-            resolve();
-        });
-    });
+    // Determine which offer to place
+    let offerToPlace = null;
 
     if (targetOffer > 0.95 * fmv) {
+        // High enough offer - use calculated targetOffer
+        offerToPlace = targetOffer;
+    } else if (isUserCurrentlyBidding(settings.userAddress, bidders)) {
+        // User is currently bidding but targetOffer is low - place $1 to maintain bid
+        offerToPlace = 1.00;
+    }
+    // If neither condition is met, offerToPlace remains null (no offer)
+
+    if (offerToPlace !== null) {
+        const autoOfferBtn = createHelperUI(fmv, list, offerToPlace);
+
+        let offerComplete = new Promise((resolve) => {
+            autoOfferBtn.addEventListener('click', async () => {
+                await executeAutoOffer(offerToPlace, paths);
+                resolve();
+            });
+        });
+
         await sleep(200);
         autoOfferBtn.click();
         await offerComplete;
         await sleep(10000);
-        if (!settings.dontCloseWindow) {
-            window.close();
-        }
-    } else {
-        await sleep(500);
-        if (!settings.dontCloseWindow) {
-            window.close();
-        }
+    }
+
+    if (!settings.dontCloseWindow) {
+        window.close();
     }
 }
 
