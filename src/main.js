@@ -1,12 +1,32 @@
+/**
+ * Check if the user's address is currently bidding
+ * @param {string} userAddress - User's wallet address
+ * @param {string[]} bidders - Array of bidder addresses
+ * @returns {boolean} - True if userAddress is in bidders array
+ */
+function isUserCurrentlyBidding(userAddress, bidders) {
+    if (!userAddress || userAddress.trim() === '') {
+        return false;
+    }
+    return bidders.includes(userAddress);
+}
+function shortenAddress(address) {
+    if (!address) {
+        return '';
+    }
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
 async function init() {
     console.log("%c--- Renaiss Helper: Script Starting ---", "color: #3b82f6; font-size: 14px;");
 
     // Load settings from storage
     const settings = await new Promise(resolve => {
-        chrome.storage.local.get(['isRiskTaker', 'dontCloseWindow'], (result) => {
+        chrome.storage.local.get(['isRiskTaker', 'dontCloseWindow', 'userAddress'], (result) => {
             resolve({
                 isRiskTaker: result.isRiskTaker || false,
-                dontCloseWindow: result.dontCloseWindow || false
+                dontCloseWindow: result.dontCloseWindow || false,
+                userAddress: shortenAddress(result.userAddress) || ''
             });
         });
     });
@@ -35,28 +55,36 @@ async function init() {
     console.log("%c[DATA] Scraped Prices:", "color: #fbbf24", { fmv, targetOffer });
 
     // 3. UI and Automation
-    const autoOfferBtn = createHelperUI(fmv, list, targetOffer);
-
-    let offerComplete = new Promise((resolve) => {
-        autoOfferBtn.addEventListener('click', async () => {
-            await executeAutoOffer(targetOffer, paths);
-            resolve();
-        });
-    });
+    // Determine which offer to place
+    let offerToPlace = null;
 
     if (targetOffer > 0.95 * fmv) {
+        // High enough offer - use calculated targetOffer
+        offerToPlace = targetOffer;
+    } else if (isUserCurrentlyBidding(settings.userAddress, bidders)) {
+        // User is currently bidding but targetOffer is low - place $1 to maintain bid
+        offerToPlace = 1.00;
+    }
+    // If neither condition is met, offerToPlace remains null (no offer)
+
+    if (offerToPlace !== null) {
+        const autoOfferBtn = createHelperUI(fmv, list, offerToPlace);
+
+        let offerComplete = new Promise((resolve) => {
+            autoOfferBtn.addEventListener('click', async () => {
+                await executeAutoOffer(offerToPlace, paths);
+                resolve();
+            });
+        });
+
         await sleep(200);
         autoOfferBtn.click();
         await offerComplete;
         await sleep(10000);
-        if (!settings.dontCloseWindow) {
-            window.close();
-        }
-    } else {
-        await sleep(500);
-        if (!settings.dontCloseWindow) {
-            window.close();
-        }
+    }
+
+    if (!settings.dontCloseWindow) {
+        window.close();
     }
 }
 

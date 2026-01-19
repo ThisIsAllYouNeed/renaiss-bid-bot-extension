@@ -127,3 +127,36 @@ button:hover {
     background-color: #00acc1; /* Darker cyan on hover */
     box-shadow: 0 0 15px rgba(0, 188, 212, 0.8);
 }
+
+#userAddress {
+    width: 100%;
+    padding: 8px;
+    margin: 5px 0;
+    border: 1px solid #4a4a7a;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: #3a3a5a;
+    color: #e0e0e0;
+    box-sizing: border-box;
+}
+
+#userAddress:focus {
+    outline: none;
+    border-color: #00bcd4;
+    box-shadow: 0 0 8px rgba(0, 188, 212, 0.5);
+}
+
+.address-saved-indicator {
+    color: #10b981;
+    margin-left: 8px;
+    display: none;
+    font-size: 12px;
+}
+
+.address-saved-indicator.show {
+    display: inline;
+}
+
+#addressSaved {
+    font-size: 12px;
+}
