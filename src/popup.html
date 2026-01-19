@@ -34,9 +34,11 @@
             </div>
         </div>
         <div class="setting">
-            <label for="userAddress">Wallet Address:</label>
-            <input type="text" id="userAddress" placeholder="Enter your wallet address" />
-            <span id="addressSaved" style="display: none; color: #10b981; margin-left: 8px;">✓ Saved</span>
+            <label>
+                <input type="text" id="userAddress" placeholder="Enter your wallet address" />
+                Wallet Address:
+                <span id="addressSaved" class="address-saved-indicator" aria-live="polite"></span>
+            </label>
         </div>
     </div>
     <script src="popup.js"></script>
