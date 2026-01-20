@@ -25,6 +25,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('[ServiceWorker] Sender tab ID:', sender.tab?.id);
     console.log('[ServiceWorker] Sender URL:', sender.url);
 
+    // Handle openTab action (avoid logging it as "Unknown action")
+    if (request.action === 'openTab') {
+        console.log('[ServiceWorker] Handling openTab action (delegated to first listener)');
+        return false; // Let the first listener handle it
+    }
+
     if (request.action === 'start-nft-listening') {
         console.log('[ServiceWorker] Processing start-nft-listening request...');
         const tabId = sender.tab.id;
