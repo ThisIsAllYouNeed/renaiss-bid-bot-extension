@@ -29,6 +29,12 @@ class NFTListener {
         this.activeEndpoint = null;
         this.lastTransferEvent = null;
         this.connectionTimestamp = null;
+
+        // Reconnection tracking
+        this.reconnectTimeout = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 20;
+        this.baseReconnectDelay = 2000; // Start with 2 seconds
     }
 
     /**
@@ -106,6 +112,39 @@ class NFTListener {
     }
 
     /**
+     * Check if the provider connection is healthy
+     * @returns {Promise<boolean>} True if provider is connected and responsive
+     */
+    async isProviderHealthy() {
+        try {
+            if (!this.provider) {
+                console.log('[NFTListener] Provider is null');
+                return false;
+            }
+
+            // For WebSocketProvider, check if connection is open
+            if (this.provider._websocket) {
+                const wsReadyState = this.provider._websocket.readyState;
+                console.log('[NFTListener] WebSocket readyState:', wsReadyState);
+                // 0 = CONNECTING, 1 = OPEN, 2 = CLOSING, 3 = CLOSED
+                if (wsReadyState !== 1) {
+                    console.log('[NFTListener] WebSocket is not in OPEN state');
+                    return false;
+                }
+            }
+
+            // Try a simple network call to verify provider is responsive
+            console.log('[NFTListener] Testing provider connectivity...');
+            const network = await this.provider.getNetwork();
+            console.log('[NFTListener] Provider is healthy, chain:', network.chainId);
+            return true;
+        } catch (error) {
+            console.error('[NFTListener] Provider health check failed:', error.message);
+            return false;
+        }
+    }
+
+    /**
      * Start listening to Transfer events
      * @returns {Promise<boolean>} Success status
      */
@@ -118,18 +157,21 @@ class NFTListener {
         }
 
         try {
-            console.log('[NFTListener] Checking if provider exists:', !!this.provider);
+            console.log('[NFTListener] Checking provider health...');
+            const providerHealthy = await this.isProviderHealthy();
 
-            if (!this.provider) {
-                console.log('[NFTListener] No provider, initializing...');
+            if (!providerHealthy) {
+                console.log('[NFTListener] Provider is not healthy, reinitializing...');
+                // Reset provider to force reinitialization
+                this.provider = null;
                 const initialized = await this.initializeProvider();
-                console.log('[NFTListener] Provider initialization result:', initialized);
+                console.log('[NFTListener] Provider reinitialization result:', initialized);
 
                 if (!initialized) {
-                    throw new Error('Failed to initialize provider');
+                    throw new Error('Failed to reinitialize provider');
                 }
             } else {
-                console.log('[NFTListener] Provider already exists');
+                console.log('[NFTListener] Provider is healthy');
             }
 
             // Create contract instance with event filter
@@ -148,12 +190,51 @@ class NFTListener {
 
             // Set up the event listener
             console.log('[NFTListener] Setting up event listener...');
-            this.listener = (from, to, tokenId) => {
+            this.listener = (eventLog) => {
                 console.log('[NFTListener] Event listener callback triggered!');
+                console.log('[NFTListener] EventLog object:', eventLog);
+                console.log('[NFTListener] EventLog.args:', eventLog.args);
+
+                // ethers.js v6 passes EventLog object with args as a Proxy containing [from, to, tokenId]
+                const from = eventLog.args[0];
+                const to = eventLog.args[1];
+                const tokenId = eventLog.args[2];
+
+                console.log('[NFTListener] Extracted - From:', from, 'To:', to, 'TokenId:', tokenId);
                 this.onTransferDetected(from, to, tokenId);
             };
 
-            this.contract.on(filter, this.listener);
+            // Wrap contract.on() in a try-catch because the connection can drop during setup
+            try {
+                console.log('[NFTListener] Calling contract.on() to start listening...');
+                this.contract.on(filter, this.listener);
+                console.log('[NFTListener] contract.on() completed successfully');
+            } catch (onError) {
+                console.error('[NFTListener] Error during contract.on():', onError.message);
+                throw onError;
+            }
+
+            // Set up WebSocket disconnection detection (if using WebSocketProvider)
+            if (this.provider._websocket) {
+                console.log('[NFTListener] Setting up WebSocket event handlers...');
+                this.provider._websocket.addEventListener('close', () => {
+                    console.warn('[NFTListener] WebSocket closed unexpectedly!');
+                    this.isListening = false;
+                    if (this.hasActiveTabs()) {
+                        console.log('[NFTListener] WebSocket closed but tabs still listening, scheduling reconnect');
+                        this.scheduleReconnect();
+                    }
+                });
+                this.provider._websocket.addEventListener('error', (event) => {
+                    console.error('[NFTListener] WebSocket error:', event);
+                    this.isListening = false;
+                    if (this.hasActiveTabs()) {
+                        console.log('[NFTListener] WebSocket error occurred, scheduling reconnect');
+                        this.scheduleReconnect();
+                    }
+                });
+            }
+
             this.isListening = true;
             console.log('[NFTListener] isListening set to true');
 
@@ -165,7 +246,20 @@ class NFTListener {
             console.error('[NFTListener] === FAILED to start listening ===');
             console.error('[NFTListener] Error message:', error.message);
             console.error('[NFTListener] Full error:', error);
+            console.error('[NFTListener] Stack trace:', error.stack);
             this.isListening = false;
+
+            // Reset provider and contract on failure to force clean reconnection
+            console.log('[NFTListener] Resetting provider and contract for clean reconnection...');
+            this.provider = null;
+            this.contract = null;
+
+            // Schedule reconnection if we have active tabs
+            if (this.hasActiveTabs()) {
+                console.log('[NFTListener] Scheduling reconnection attempt...');
+                this.scheduleReconnect();
+            }
+
             return false;
         }
     }
@@ -181,6 +275,66 @@ class NFTListener {
             await this.updateStorageStatus();
             console.log('[NFTListener] Stopped listening to Transfer events');
         }
+
+        // Remove WebSocket event listeners to prevent memory leaks
+        if (this.provider && this.provider._websocket) {
+            try {
+                this.provider._websocket.removeEventListener('close');
+                this.provider._websocket.removeEventListener('error');
+                console.log('[NFTListener] Removed WebSocket event listeners');
+            } catch (error) {
+                console.log('[NFTListener] Could not remove WebSocket event listeners (may already be removed)');
+            }
+        }
+
+        // Clear any pending reconnection attempts
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+    }
+
+    /**
+     * Attempt to reconnect after a delay
+     * @private
+     */
+    async scheduleReconnect() {
+        if (!this.hasActiveTabs()) {
+            console.log('[NFTListener] No active tabs, skipping reconnect');
+            return;
+        }
+
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            console.error('[NFTListener] Max reconnect attempts reached, giving up');
+            this.connectionStatus = 'failed';
+            await this.updateStorageStatus();
+            return;
+        }
+
+        this.reconnectAttempts++;
+        // Exponential backoff: 2s, 4s, 8s, 16s, etc. capped at 60s
+        const delay = Math.min(this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 60000);
+        console.log(`[NFTListener] Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
+
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+        }
+
+        this.reconnectTimeout = setTimeout(() => {
+            console.log('[NFTListener] Executing reconnect attempt...');
+            this.startListening().then((success) => {
+                if (success) {
+                    console.log('[NFTListener] Reconnection successful!');
+                    this.reconnectAttempts = 0; // Reset on success
+                } else {
+                    console.log('[NFTListener] Reconnection failed, will retry');
+                    this.scheduleReconnect();
+                }
+            }).catch((error) => {
+                console.error('[NFTListener] Reconnection error:', error);
+                this.scheduleReconnect();
+            });
+        }, delay);
     }
 
     /**
@@ -211,36 +365,48 @@ class NFTListener {
      * @param {BigNumberish} tokenId - Token ID
      */
     async onTransferDetected(from, to, tokenId) {
-        const tokenIdStr = tokenId.toString();
-        console.log('[NFTListener] Transfer detected - TokenID:', tokenIdStr, 'From:', from, 'To:', to);
+        try {
+            // Validate parameters
+            if (tokenId === undefined || tokenId === null) {
+                console.error('[NFTListener] Invalid transfer event: tokenId is undefined or null');
+                console.error('[NFTListener] Received parameters - from:', from, 'to:', to, 'tokenId:', tokenId);
+                return;
+            }
 
-        // Track the last transfer event
-        this.lastTransferEvent = {
-            tokenId: tokenIdStr,
-            from: from,
-            to: to,
-            timestamp: new Date().toISOString(),
-            url: `https://www.renaiss.xyz/card/${tokenIdStr}`
-        };
+            const tokenIdStr = tokenId.toString();
+            console.log('[NFTListener] Transfer detected - TokenID:', tokenIdStr, 'From:', from, 'To:', to);
 
-        await this.updateStorageStatus();
+            // Track the last transfer event
+            this.lastTransferEvent = {
+                tokenId: tokenIdStr,
+                from: from,
+                to: to,
+                timestamp: new Date().toISOString(),
+                url: `https://www.renaiss.xyz/card/${tokenIdStr}`
+            };
 
-        // Broadcast to all listening marketplace tabs
-        if (this.tabs.size > 0) {
-            for (const tabId of this.tabs) {
-                try {
-                    chrome.tabs.sendMessage(tabId, {
-                        action: 'transfer-detected',
-                        tokenId: tokenIdStr,
-                        from: from,
-                        to: to
-                    });
-                    console.log('[NFTListener] Sent transfer notification to tab', tabId);
-                } catch (error) {
-                    console.error('[NFTListener] Failed to send message to tab', tabId, error);
-                    this.tabs.delete(tabId); // Remove invalid tab
+            await this.updateStorageStatus();
+
+            // Broadcast to all listening marketplace tabs
+            if (this.tabs.size > 0) {
+                for (const tabId of this.tabs) {
+                    try {
+                        chrome.tabs.sendMessage(tabId, {
+                            action: 'transfer-detected',
+                            tokenId: tokenIdStr,
+                            from: from,
+                            to: to
+                        });
+                        console.log('[NFTListener] Sent transfer notification to tab', tabId);
+                    } catch (error) {
+                        console.error('[NFTListener] Failed to send message to tab', tabId, error);
+                        this.tabs.delete(tabId); // Remove invalid tab
+                    }
                 }
             }
+        } catch (error) {
+            console.error('[NFTListener] Error in onTransferDetected:', error.message);
+            console.error('[NFTListener] Full error:', error);
         }
     }
 
