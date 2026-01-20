@@ -4,7 +4,8 @@
  * Manages blockchain connection and Transfer event listening
  */
 
-import { ethers } from 'ethers';
+// Import ethers from CDN ES module
+import { ethers } from 'https://esm.sh/ethers@6.11.1';
 import { getNextWsEndpoint, getFallbackRpcEndpoint } from './ws-config.js';
 
 const CONTRACT_ADDRESS = '0xf8646a3ca093e97bb404c3b25e675c0394dd5b30';
