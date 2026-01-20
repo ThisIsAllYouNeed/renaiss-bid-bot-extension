@@ -5,6 +5,9 @@
  */
 export const WS_ENDPOINTS = {
     pools: [
+        "wss://bsc-rpc.publicnode.com",
+        "wss://bsc.drpc.org",
+        "wss://bsc.callstaticrpc.com",
         // Add WebSocket endpoints here
         // Example: 'wss://bsc-ws-node.nariox.org:443'
     ],

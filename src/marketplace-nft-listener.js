@@ -30,13 +30,19 @@
      * Request the service worker to start listening for NFT transfers
      */
     function startListening() {
+        console.log('[MarketplaceNFTListener] Sending start-nft-listening message to service worker...');
         chrome.runtime.sendMessage(
             { action: 'start-nft-listening' },
             (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error('[MarketplaceNFTListener] Chrome runtime error:', chrome.runtime.lastError);
+                    return;
+                }
+                console.log('[MarketplaceNFTListener] Received response from service worker:', response);
                 if (response && response.success) {
                     console.log('[MarketplaceNFTListener] NFT listening started:', response.message);
                 } else {
-                    console.error('[MarketplaceNFTListener] Failed to start listening:', response?.message);
+                    console.error('[MarketplaceNFTListener] Failed to start listening:', response?.message, 'Full response:', response);
                 }
             }
         );
