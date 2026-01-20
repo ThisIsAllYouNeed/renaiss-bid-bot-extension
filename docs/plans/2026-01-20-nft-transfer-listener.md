@@ -678,6 +678,45 @@ git commit -m "docs: add configuration instructions for NFT listener setup"
 
 ---
 
+## Configuration Instructions
+
+### Adding WebSocket Endpoints
+
+After research, add your BSC WebSocket endpoints to `src/ws-config.js`:
+
+```javascript
+export const WS_ENDPOINTS = {
+    pools: [
+        'wss://your-bsc-endpoint-1:443',
+        'wss://your-bsc-endpoint-2:443',
+        // Add more endpoints for redundancy
+    ],
+    fallbackRpc: 'https://bsc-dataseed.binance.org/',
+    currentIndex: 0
+};
+```
+
+Recommended endpoints to research:
+- Nariox: `wss://bsc-ws-node.nariox.org:443`
+- GetBlock: `wss://bsc.getblock.io/{api-key}` (requires free API key)
+- Ankr: `wss://rpc.ankr.com/bsc/ws` (check current status)
+
+### Testing the Feature
+
+1. Start extension in development mode
+2. Navigate to https://www.renaiss.xyz/marketplace
+3. Monitor browser console and Service Worker logs
+4. When an NFT transfer occurs on the contract, a new tab should open with the card details
+
+### Debugging
+
+Enable detailed logging by checking:
+- Content script console: `[MarketplaceNFTListener]` messages
+- Service Worker console: `[ServiceWorker]` and `[NFTListener]` messages
+- Check Network tab in DevTools to verify WebSocket connection
+
+---
+
 ## Summary
 
 This plan implements a real-time NFT transfer listener with the following components:
