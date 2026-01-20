@@ -22,6 +22,12 @@ class NFTListener {
         this.isListening = false;
         this.listener = null;
         this.tabs = new Set(); // Track which tabs have requested listening
+
+        // Status tracking
+        this.connectionStatus = 'disconnected'; // 'connected', 'disconnected', 'connecting', 'failed'
+        this.activeEndpoint = null;
+        this.lastTransferEvent = null;
+        this.connectionTimestamp = null;
     }
 
     /**
@@ -30,6 +36,9 @@ class NFTListener {
      */
     async initializeProvider() {
         try {
+            this.connectionStatus = 'connecting';
+            await this.updateStorageStatus();
+
             const wsEndpoint = getNextWsEndpoint();
 
             if (wsEndpoint) {
@@ -38,6 +47,10 @@ class NFTListener {
                     this.provider = new ethers.WebSocketProvider(wsEndpoint);
                     await this.provider.getNetwork(); // Test connection
                     console.log('[NFTListener] WebSocket connection established');
+                    this.connectionStatus = 'connected';
+                    this.activeEndpoint = wsEndpoint;
+                    this.connectionTimestamp = new Date().toISOString();
+                    await this.updateStorageStatus();
                     return true;
                 } catch (wsError) {
                     console.warn('[NFTListener] WebSocket failed, trying HTTP fallback:', wsError.message);
@@ -50,9 +63,16 @@ class NFTListener {
             this.provider = new ethers.JsonRpcProvider(rpcEndpoint);
             await this.provider.getNetwork(); // Test connection
             console.log('[NFTListener] HTTP connection established');
+            this.connectionStatus = 'connected';
+            this.activeEndpoint = rpcEndpoint + ' (HTTP Fallback)';
+            this.connectionTimestamp = new Date().toISOString();
+            await this.updateStorageStatus();
             return true;
         } catch (error) {
             console.error('[NFTListener] Failed to initialize provider:', error);
+            this.connectionStatus = 'failed';
+            this.activeEndpoint = null;
+            await this.updateStorageStatus();
             return false;
         }
     }
@@ -105,11 +125,34 @@ class NFTListener {
     /**
      * Stop listening to Transfer events
      */
-    stopListening() {
+    async stopListening() {
         if (this.contract && this.listener) {
             this.contract.removeListener('Transfer', this.listener);
             this.isListening = false;
+            this.connectionStatus = 'disconnected';
+            await this.updateStorageStatus();
             console.log('[NFTListener] Stopped listening to Transfer events');
+        }
+    }
+
+    /**
+     * Update chrome.storage with current status
+     */
+    async updateStorageStatus() {
+        try {
+            await chrome.storage.local.set({
+                'nft-listener-status': {
+                    connectionStatus: this.connectionStatus,
+                    activeEndpoint: this.activeEndpoint,
+                    lastTransferEvent: this.lastTransferEvent,
+                    connectionTimestamp: this.connectionTimestamp,
+                    listeningTabsCount: this.tabs.size,
+                    isListening: this.isListening
+                }
+            });
+            console.log('[NFTListener] Status updated in storage:', this.connectionStatus);
+        } catch (error) {
+            console.error('[NFTListener] Failed to update storage:', error);
         }
     }
 
@@ -122,6 +165,17 @@ class NFTListener {
     async onTransferDetected(from, to, tokenId) {
         const tokenIdStr = tokenId.toString();
         console.log('[NFTListener] Transfer detected - TokenID:', tokenIdStr, 'From:', from, 'To:', to);
+
+        // Track the last transfer event
+        this.lastTransferEvent = {
+            tokenId: tokenIdStr,
+            from: from,
+            to: to,
+            timestamp: new Date().toISOString(),
+            url: `https://www.renaiss.xyz/card/${tokenIdStr}`
+        };
+
+        await this.updateStorageStatus();
 
         // Broadcast to all listening marketplace tabs
         if (this.tabs.size > 0) {
