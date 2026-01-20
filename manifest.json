@@ -15,7 +15,8 @@
         "https://*.thisisallyouneed.com/*"
     ],
     "background": {
-        "service_worker": "src/service-worker.js"
+        "service_worker": "src/service-worker.js",
+        "type": "module"
     },
     "action": {
         "default_popup": "src/popup.html"
