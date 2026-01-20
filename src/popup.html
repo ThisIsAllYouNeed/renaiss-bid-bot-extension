@@ -7,8 +7,21 @@
 </head>
 <body>
     <div class="container">
-        <h2>Renaiss Auto Bid Bot</h2>
-        <p class="developer-credit">Developed by This Is All You Need</p>
+        <div class="header">
+            <div>
+                <h2>Renaiss Auto Bid Bot</h2>
+                <p class="developer-credit">Developed by This Is All You Need</p>
+            </div>
+            <div id="nft-listener-status-compact">
+                <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                    <div id="connection-indicator-compact" class="disconnected"></div>
+                    <span id="connection-text-compact">Disconnected</span>
+                </div>
+                <div style="font-size: 11px; color: #94A3B8; text-align: right;">
+                    <div id="endpoint-value-compact">—</div>
+                </div>
+            </div>
+        </div>
         <div class="setting">
             <label for="risk-taker-checkbox">
                 <input type="checkbox" id="risk-taker-checkbox">
@@ -34,35 +47,11 @@
             </div>
         </div>
         <div class="setting">
-            <div>
-                Wallet Address:
+            <label for="userAddress" style="margin-bottom: 4px; font-weight: 600; width: 100%;">
+                Wallet Address
                 <span id="addressSaved" class="address-saved-indicator" aria-live="polite"></span>
-            </div>
-            <label for="userAddress">
-                <div class="wallet-address-input">
-                    <input type="text" id="userAddress" placeholder="Enter your wallet address" />
-                </div>
             </label>
-        </div>
-    </div>
-    <div id="nft-listener-status" style="padding: 16px; border-top: 1px solid #e5e7eb;">
-        <div style="margin-bottom: 12px;">
-            <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">NFT Listener Status</h3>
-        </div>
-
-        <div style="display: flex; align-items: center; margin-bottom: 12px;">
-            <div id="connection-indicator" style="width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; background-color: #9ca3af;"></div>
-            <span id="connection-text" style="font-size: 13px; color: #6b7280;">Disconnected</span>
-        </div>
-
-        <div id="endpoint-info" style="font-size: 12px; color: #6b7280; margin-bottom: 12px; word-break: break-all;">
-            <div style="font-weight: 500; margin-bottom: 4px;">Active Endpoint:</div>
-            <div id="endpoint-value">None</div>
-        </div>
-
-        <div id="last-event-info" style="font-size: 12px; color: #6b7280;">
-            <div style="font-weight: 500; margin-bottom: 4px;">Last Transfer:</div>
-            <div id="last-event-value">No transfers detected</div>
+            <input type="text" id="userAddress" placeholder="0x..." />
         </div>
     </div>
     <script src="popup.js"></script>

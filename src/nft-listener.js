@@ -8,10 +8,16 @@
 import { ethers } from 'https://esm.sh/ethers@6.11.1';
 import { getNextWsEndpoint, getFallbackRpcEndpoint } from './ws-config.js';
 
-const CONTRACT_ADDRESS = '0xf8646a3ca093e97bb404c3b25e675c0394dd5b30';
+// The marketplace contract we're monitoring for trades
+const MARKETPLACE_CONTRACT = '0xae3e7268ef5a062946216a44f58a8f685ffd11d0';
+// The NFT contract that emits Transfer events (used as log emitter filter)
+// Using lowercase to ensure RPC provider filter matching works correctly
+const NFT_CONTRACT_ADDRESS = '0xf8646a3ca093e97bb404c3b25e675c0394dd5b30';
 const CHAIN_ID = 56; // BSC Chain ID
 
 // ERC721 Transfer event signature: Transfer(address indexed from, address indexed to, uint256 indexed tokenId)
+// Topic0 = keccak256("Transfer(address,address,uint256)")
+const TRANSFER_EVENT_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 const TRANSFER_EVENT_ABI = [
     'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)'
 ];
@@ -162,8 +168,8 @@ class NFTListener {
 
             if (!providerHealthy) {
                 console.log('[NFTListener] Provider is not healthy, reinitializing...');
-                // Reset provider to force reinitialization
-                this.provider = null;
+                // Properly destroy old provider and wait for WebSocket to close
+                await this.destroyProvider();
                 const initialized = await this.initializeProvider();
                 console.log('[NFTListener] Provider reinitialization result:', initialized);
 
@@ -174,40 +180,32 @@ class NFTListener {
                 console.log('[NFTListener] Provider is healthy');
             }
 
-            // Create contract instance with event filter
-            console.log('[NFTListener] Creating contract instance with address:', CONTRACT_ADDRESS);
+            // Create contract instance for event listening
+            console.log('[NFTListener] Creating contract instance for NFT:', MARKETPLACE_CONTRACT);
             this.contract = new ethers.Contract(
-                CONTRACT_ADDRESS,
+                MARKETPLACE_CONTRACT,
                 TRANSFER_EVENT_ABI,
                 this.provider
             );
             console.log('[NFTListener] Contract instance created');
+            console.log('[NFTListener] Marketplace contract (for reference):', MARKETPLACE_CONTRACT);
 
-            // Create a filter for all transfers from this contract
-            console.log('[NFTListener] Creating transfer filter...');
-            const filter = this.contract.filters.Transfer();
-            console.log('[NFTListener] Filter created:', filter);
+            // Set up the event listener using contract.on() - more reliable than provider.on()
+            console.log('[NFTListener] Setting up Transfer event listener via contract.on()...');
+            this.listener = (from, to, tokenId, event) => {
+                console.log('[NFTListener] *** TRANSFER EVENT RECEIVED ***');
+                console.log('[NFTListener] From:', from);
+                console.log('[NFTListener] To:', to);
+                console.log('[NFTListener] TokenId:', tokenId.toString());
+                console.log('[NFTListener] Event object:', event);
 
-            // Set up the event listener
-            console.log('[NFTListener] Setting up event listener...');
-            this.listener = (eventLog) => {
-                console.log('[NFTListener] Event listener callback triggered!');
-                console.log('[NFTListener] EventLog object:', eventLog);
-                console.log('[NFTListener] EventLog.args:', eventLog.args);
-
-                // ethers.js v6 passes EventLog object with args as a Proxy containing [from, to, tokenId]
-                const from = eventLog.args[0];
-                const to = eventLog.args[1];
-                const tokenId = eventLog.args[2];
-
-                console.log('[NFTListener] Extracted - From:', from, 'To:', to, 'TokenId:', tokenId);
                 this.onTransferDetected(from, to, tokenId);
             };
 
-            // Wrap contract.on() in a try-catch because the connection can drop during setup
+            // Use contract.on('Transfer', ...) which handles subscription internally
             try {
-                console.log('[NFTListener] Calling contract.on() to start listening...');
-                this.contract.on(filter, this.listener);
+                console.log('[NFTListener] Calling contract.on("Transfer", ...)...');
+                this.contract.on('Transfer', this.listener);
                 console.log('[NFTListener] contract.on() completed successfully');
             } catch (onError) {
                 console.error('[NFTListener] Error during contract.on():', onError.message);
@@ -239,7 +237,8 @@ class NFTListener {
             console.log('[NFTListener] isListening set to true');
 
             console.log('[NFTListener] === Successfully started listening to Transfer events ===');
-            console.log('[NFTListener] Contract address:', CONTRACT_ADDRESS);
+            console.log('[NFTListener] NFT contract (log emitter):', NFT_CONTRACT_ADDRESS);
+            console.log('[NFTListener] Marketplace contract:', MARKETPLACE_CONTRACT);
             console.log('[NFTListener] Provider:', this.provider.constructor.name);
             return true;
         } catch (error) {
@@ -249,10 +248,9 @@ class NFTListener {
             console.error('[NFTListener] Stack trace:', error.stack);
             this.isListening = false;
 
-            // Reset provider and contract on failure to force clean reconnection
-            console.log('[NFTListener] Resetting provider and contract for clean reconnection...');
-            this.provider = null;
-            this.contract = null;
+            // Properly destroy provider on failure to force clean reconnection
+            console.log('[NFTListener] Destroying provider for clean reconnection...');
+            await this.destroyProvider();
 
             // Schedule reconnection if we have active tabs
             if (this.hasActiveTabs()) {
@@ -269,22 +267,12 @@ class NFTListener {
      */
     async stopListening() {
         if (this.contract && this.listener) {
-            this.contract.removeListener('Transfer', this.listener);
+            // Remove the Transfer event listener from the contract
+            this.contract.off('Transfer', this.listener);
             this.isListening = false;
             this.connectionStatus = 'disconnected';
             await this.updateStorageStatus();
             console.log('[NFTListener] Stopped listening to Transfer events');
-        }
-
-        // Remove WebSocket event listeners to prevent memory leaks
-        if (this.provider && this.provider._websocket) {
-            try {
-                this.provider._websocket.removeEventListener('close');
-                this.provider._websocket.removeEventListener('error');
-                console.log('[NFTListener] Removed WebSocket event listeners');
-            } catch (error) {
-                console.log('[NFTListener] Could not remove WebSocket event listeners (may already be removed)');
-            }
         }
 
         // Clear any pending reconnection attempts
@@ -292,6 +280,77 @@ class NFTListener {
             clearTimeout(this.reconnectTimeout);
             this.reconnectTimeout = null;
         }
+
+        // Properly destroy the provider to close WebSocket
+        await this.destroyProvider();
+    }
+
+    /**
+     * Destroy the provider and wait for WebSocket to fully close
+     * @returns {Promise<void>}
+     */
+    async destroyProvider() {
+        if (!this.provider) {
+            return;
+        }
+
+        console.log('[NFTListener] Destroying provider...');
+
+        // For WebSocketProvider, we need to destroy it and wait for close
+        if (this.provider._websocket) {
+            const ws = this.provider._websocket;
+            const readyState = ws.readyState;
+            console.log('[NFTListener] WebSocket readyState before destroy:', readyState);
+
+            // If already closed, no need to wait
+            if (readyState === 3) { // CLOSED
+                console.log('[NFTListener] WebSocket already closed');
+                this.provider = null;
+                this.contract = null;
+                return;
+            }
+
+            // Create a promise that resolves when WebSocket closes
+            const closePromise = new Promise((resolve) => {
+                const timeout = setTimeout(() => {
+                    console.log('[NFTListener] WebSocket close timeout, proceeding anyway');
+                    resolve();
+                }, 3000); // 3 second timeout
+
+                const onClose = () => {
+                    clearTimeout(timeout);
+                    console.log('[NFTListener] WebSocket closed successfully');
+                    resolve();
+                };
+
+                // If already closing or open, wait for close event
+                if (readyState === 1 || readyState === 2) { // OPEN or CLOSING
+                    ws.addEventListener('close', onClose, { once: true });
+                } else {
+                    resolve();
+                }
+            });
+
+            // Call destroy on the provider (ethers.js v6)
+            try {
+                if (typeof this.provider.destroy === 'function') {
+                    console.log('[NFTListener] Calling provider.destroy()');
+                    await this.provider.destroy();
+                } else if (readyState === 1) { // OPEN - manually close
+                    console.log('[NFTListener] Manually closing WebSocket');
+                    ws.close();
+                }
+            } catch (error) {
+                console.log('[NFTListener] Error during provider destroy:', error.message);
+            }
+
+            // Wait for the WebSocket to fully close
+            await closePromise;
+        }
+
+        this.provider = null;
+        this.contract = null;
+        console.log('[NFTListener] Provider destroyed');
     }
 
     /**

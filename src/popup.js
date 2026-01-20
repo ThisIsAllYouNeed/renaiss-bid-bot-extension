@@ -119,38 +119,32 @@ async function updatePopupStatus() {
         console.log('[Popup] - isListening:', status.isListening);
         console.log('[Popup] - listeningTabsCount:', status.listeningTabsCount);
 
-        // Update connection indicator
-        const indicator = document.getElementById('connection-indicator');
-        const connectionText = document.getElementById('connection-text');
+        // Update compact connection indicator (top-right)
+        const indicatorCompact = document.getElementById('connection-indicator-compact');
+        const connectionTextCompact = document.getElementById('connection-text-compact');
+        const endpointValueCompact = document.getElementById('endpoint-value-compact');
 
-        if (indicator && connectionText) {
-            const color = STATUS_COLORS[status.connectionStatus] || STATUS_COLORS.disconnected;
-            const label = STATUS_LABELS[status.connectionStatus] || 'Unknown';
+        if (indicatorCompact && connectionTextCompact) {
+            const statusKey = status.connectionStatus || 'disconnected';
+            const color = STATUS_COLORS[statusKey] || STATUS_COLORS.disconnected;
+            const label = STATUS_LABELS[statusKey] || 'Unknown';
 
-            indicator.style.backgroundColor = color;
-            connectionText.textContent = label;
-            connectionText.style.color = color;
+            // Update CSS class for styling
+            indicatorCompact.className = statusKey;
+            connectionTextCompact.textContent = label;
+            connectionTextCompact.style.color = color;
         }
 
-        // Update endpoint info
-        const endpointValue = document.getElementById('endpoint-value');
-        if (endpointValue) {
+        // Update compact endpoint display
+        if (endpointValueCompact) {
             if (status.activeEndpoint) {
-                endpointValue.textContent = status.activeEndpoint;
+                // Show shortened endpoint (first 12 chars + ... + last 6 chars)
+                const endpoint = status.activeEndpoint;
+                endpointValueCompact.textContent = endpoint.length > 20
+                    ? endpoint.substring(0, 12) + '...' + endpoint.substring(endpoint.length - 6)
+                    : endpoint;
             } else {
-                endpointValue.textContent = 'None';
-            }
-        }
-
-        // Update last event info
-        const lastEventValue = document.getElementById('last-event-value');
-        if (lastEventValue) {
-            if (status.lastTransferEvent) {
-                const event = status.lastTransferEvent;
-                const timestamp = new Date(event.timestamp).toLocaleTimeString();
-                lastEventValue.innerHTML = `Token ID: <strong>${event.tokenId}</strong><br/>Time: ${timestamp}`;
-            } else {
-                lastEventValue.textContent = 'No transfers detected';
+                endpointValueCompact.textContent = '—';
             }
         }
 
