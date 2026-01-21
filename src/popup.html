@@ -7,8 +7,21 @@
 </head>
 <body>
     <div class="container">
-        <h2>Renaiss Auto Bid Bot</h2>
-        <p class="developer-credit">Developed by This Is All You Need</p>
+        <div class="header">
+            <div>
+                <h2>Renaiss Auto Bid Bot</h2>
+                <p class="developer-credit">Developed by This Is All You Need</p>
+            </div>
+            <div id="nft-listener-status-compact">
+                <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                    <div id="connection-indicator-compact" class="disconnected"></div>
+                    <span id="connection-text-compact">Disconnected</span>
+                </div>
+                <div style="font-size: 11px; color: #94A3B8; text-align: right;">
+                    <div id="endpoint-value-compact">—</div>
+                </div>
+            </div>
+        </div>
         <div class="setting">
             <label for="risk-taker-checkbox">
                 <input type="checkbox" id="risk-taker-checkbox">
@@ -34,15 +47,11 @@
             </div>
         </div>
         <div class="setting">
-            <div>
-                Wallet Address:
+            <label for="userAddress" style="margin-bottom: 4px; font-weight: 600; width: 100%;">
+                Wallet Address
                 <span id="addressSaved" class="address-saved-indicator" aria-live="polite"></span>
-            </div>
-            <label for="userAddress">
-                <div class="wallet-address-input">
-                    <input type="text" id="userAddress" placeholder="Enter your wallet address" />
-                </div>
             </label>
+            <input type="text" id="userAddress" placeholder="0x..." />
         </div>
     </div>
     <script src="popup.js"></script>

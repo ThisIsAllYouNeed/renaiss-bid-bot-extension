@@ -15,7 +15,8 @@
         "https://*.thisisallyouneed.com/*"
     ],
     "background": {
-        "service_worker": "src/service-worker.js"
+        "service_worker": "src/service-worker.js",
+        "type": "module"
     },
     "action": {
         "default_popup": "src/popup.html"
@@ -47,6 +48,18 @@
             ],
             "js": [
                 "src/price-analyzer.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://www.renaiss.xyz/marketplace*"
+            ],
+            "exclude_matches": [
+                "https://www.renaiss.xyz/card/*"
+            ],
+            "js": [
+                "src/marketplace-nft-listener.js"
             ],
             "run_at": "document_idle"
         }

@@ -71,3 +71,119 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+/**
+ * NFT Listener Status Updates
+ */
+
+const STATUS_COLORS = {
+    connected: '#10b981',    // Green
+    disconnected: '#9ca3af',  // Gray
+    connecting: '#f59e0b',    // Amber
+    failed: '#ef4444'         // Red
+};
+
+const STATUS_LABELS = {
+    connected: 'Connected',
+    disconnected: 'Disconnected',
+    connecting: 'Connecting...',
+    failed: 'Connection Failed'
+};
+
+/**
+ * Update popup with current status from storage
+ */
+async function updatePopupStatus() {
+    try {
+        console.log('[Popup] === Updating status from storage ===');
+        const result = await chrome.storage.local.get('nft-listener-status');
+        console.log('[Popup] Storage result:', result);
+
+        const status = result['nft-listener-status'];
+        console.log('[Popup] Status object:', status);
+
+        if (!status) {
+            console.log('[Popup] ⚠️  WARNING: No status data available yet!');
+            console.log('[Popup] This means nftListener.updateStorageStatus() has not been called');
+            console.log('[Popup] Possible causes:');
+            console.log('[Popup] 1. Service worker is not running (check Chrome DevTools → Extensions page)');
+            console.log('[Popup] 2. Marketplace-nft-listener content script is not loaded (make sure you are on /marketplace page)');
+            console.log('[Popup] 3. Content script did not send start-nft-listening message to service worker');
+            console.log('[Popup] 4. Message was sent but service worker did not respond');
+            return;
+        }
+
+        console.log('[Popup] ✓ Status data found:');
+        console.log('[Popup] - connectionStatus:', status.connectionStatus);
+        console.log('[Popup] - activeEndpoint:', status.activeEndpoint);
+        console.log('[Popup] - isListening:', status.isListening);
+        console.log('[Popup] - listeningTabsCount:', status.listeningTabsCount);
+
+        // Update compact connection indicator (top-right)
+        const indicatorCompact = document.getElementById('connection-indicator-compact');
+        const connectionTextCompact = document.getElementById('connection-text-compact');
+        const endpointValueCompact = document.getElementById('endpoint-value-compact');
+
+        if (indicatorCompact && connectionTextCompact) {
+            const statusKey = status.connectionStatus || 'disconnected';
+            const color = STATUS_COLORS[statusKey] || STATUS_COLORS.disconnected;
+            const label = STATUS_LABELS[statusKey] || 'Unknown';
+
+            // Update CSS class for styling
+            indicatorCompact.className = statusKey;
+            connectionTextCompact.textContent = label;
+            connectionTextCompact.style.color = color;
+        }
+
+        // Update compact endpoint display
+        if (endpointValueCompact) {
+            if (status.activeEndpoint) {
+                // Show shortened endpoint (first 12 chars + ... + last 6 chars)
+                const endpoint = status.activeEndpoint;
+                endpointValueCompact.textContent = endpoint.length > 20
+                    ? endpoint.substring(0, 12) + '...' + endpoint.substring(endpoint.length - 6)
+                    : endpoint;
+            } else {
+                endpointValueCompact.textContent = '—';
+            }
+        }
+
+        console.log('[Popup] ✓ UI updated successfully');
+    } catch (error) {
+        console.error('[Popup] ❌ Failed to update status:', error);
+    }
+}
+
+// Update status when popup loads
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('[Popup] === DOMContentLoaded event fired ===');
+    updatePopupStatus();
+});
+
+// Poll for status updates every 2 seconds while popup is open
+console.log('[Popup] Setting up 2-second polling interval');
+setInterval(() => {
+    console.log('[Popup] === Polling interval triggered ===');
+    updatePopupStatus();
+}, 2000);
+
+// Listen for storage changes to update popup in real-time
+console.log('[Popup] Setting up storage change listener');
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    console.log('[Popup] === Storage changed ===');
+    console.log('[Popup] Area:', areaName);
+    console.log('[Popup] Changes:', Object.keys(changes));
+
+    if (areaName === 'local' && changes['nft-listener-status']) {
+        console.log('[Popup] nft-listener-status changed, updating...');
+        console.log('[Popup] Old value:', changes['nft-listener-status'].oldValue);
+        console.log('[Popup] New value:', changes['nft-listener-status'].newValue);
+        updatePopupStatus();
+    } else if (areaName !== 'local') {
+        console.log('[Popup] Ignoring storage change from different area:', areaName);
+    } else {
+        console.log('[Popup] Ignoring storage change for different key');
+    }
+});
+
+console.log('[Popup] Popup script loaded and initialized');

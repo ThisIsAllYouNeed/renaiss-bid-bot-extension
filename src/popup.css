@@ -1,43 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700&display=swap');
+
+* {
+    box-sizing: border-box;
+}
+
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width: 300px;
-    background-color: #1a1a2e; /* Dark, technological background */
-    color: #e0e0e0; /* Light grey text for contrast */
-    text-align: center;
+    font-family: 'Exo 2', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-width: 550px;
+    background-color: #0F172A;
+    color: #F8FAFC;
     margin: 0;
     padding: 0;
-    border: 1px solid #00bcd4; /* Cyan border for tech feel */
-    box-shadow: 0 0 15px rgba(0, 188, 212, 0.5); /* Glowing effect */
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    line-height: 1.5;
+}
+
+*::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+    background: rgba(30, 41, 59, 0.4);
+}
+
+*::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.3);
+    border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.5);
 }
 
 .container {
-    padding: 15px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 4px;
+}
+
+#nft-listener-status-compact {
+    padding: 8px 10px;
+    background-color: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 8px;
+    min-width: 120px;
+    flex-shrink: 0;
 }
 
 h2 {
-    text-align: center;
-    color: #00bcd4; /* Cyan heading */
-    margin-bottom: 10px;
-    text-shadow: 0 0 8px rgba(0, 188, 212, 0.7);
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: #F59E0B;
+    margin: 0 0 4px 0;
+    text-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+    letter-spacing: 0.5px;
+    line-height: 1.2;
 }
 
 .developer-credit {
-    font-size: 0.8em;
-    color: #888;
-    margin-bottom: 20px;
+    font-size: 11px;
+    color: #64748B;
+    margin-bottom: 0;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
 }
 
 .setting {
-    margin-top: 15px;
-    padding: 12px;
-    background-color: #2a2a4a; /* Slightly lighter dark background for settings */
-    border-radius: 8px;
-    border: 1px solid #4a4a7a;
-    box-shadow: 0 0 10px rgba(0, 188, 212, 0.2);
+    padding: 14px;
+    background-color: rgba(30, 41, 59, 0.6);
+    border-radius: 10px;
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    transition: all 0.3s ease;
     display: flex;
-    flex-direction: column; /* Stack items vertically */
-    align-items: flex-start; /* Align items to the start */
-    gap: 8px; /* Space between elements in the setting */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.setting:hover {
+    background-color: rgba(30, 41, 59, 0.8);
+    border-color: rgba(139, 92, 246, 0.3);
 }
 
 label {
@@ -45,112 +99,142 @@ label {
     align-items: center;
     gap: 10px;
     cursor: pointer;
-    font-size: 1em;
-    width: 100%; /* Make label take full width */
+    font-size: 14px;
+    font-weight: 500;
+    width: 100%;
+    transition: color 0.2s ease;
+}
+
+label:hover {
+    color: #FBBF24;
 }
 
 /* Custom Checkbox Styling */
 input[type="checkbox"] {
     appearance: none;
     -webkit-appearance: none;
-    width: 20px;
-    height: 20px;
-    border: 2px solid #00bcd4; /* Cyan border */
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(139, 92, 246, 0.5);
     border-radius: 4px;
-    background-color: #3a3a5a; /* Darker background */
+    background-color: rgba(139, 92, 246, 0.1);
     cursor: pointer;
     position: relative;
     outline: none;
-    transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+    transition: all 0.25s ease;
+    flex-shrink: 0;
 }
 
 input[type="checkbox"]:checked {
-    background-color: #00bcd4; /* Cyan when checked */
-    border-color: #00bcd4;
-    box-shadow: 0 0 8px rgba(0, 188, 212, 0.7);
+    background-color: #8B5CF6;
+    border-color: #8B5CF6;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
 }
 
 input[type="checkbox"]:checked::after {
     content: '';
     display: block;
     position: absolute;
-    top: 2px;
-    left: 6px;
+    top: 1px;
+    left: 5px;
     width: 5px;
-    height: 10px;
-    border: solid #1a1a2e;
-    border-width: 0 3px 3px 0;
+    height: 9px;
+    border: solid #F8FAFC;
+    border-width: 0 2px 2px 0;
     transform: rotate(45deg);
 }
 
 input[type="checkbox"]:hover {
-    border-color: #80deea; /* Lighter cyan on hover */
-    box-shadow: 0 0 12px rgba(128, 222, 234, 0.7);
+    border-color: rgba(139, 92, 246, 0.8);
+    background-color: rgba(139, 92, 246, 0.2);
+}
+
+input[type="checkbox"]:focus {
+    outline: 2px solid rgba(139, 92, 246, 0.6);
+    outline-offset: 2px;
 }
 
 .description-box {
-    background-color: #3a3a5a; /* Slightly darker than setting background */
-    border: 1px solid #4a4a7a;
-    border-radius: 5px;
-    padding: 8px 10px;
-    width: calc(100% - 20px); /* Account for padding */
-    margin-top: -3px; /* Pull it slightly closer to the element above */
+    background-color: rgba(51, 65, 85, 0.5);
+    border: 1px solid rgba(139, 92, 246, 0.1);
+    border-radius: 6px;
+    padding: 10px;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 12px;
+    line-height: 1.4;
 }
 
 .description-text {
-    font-size: 0.75em; /* Smaller font size */
-    color: #a0a0a0; /* Muted color */
-    text-align: center;
-    display: block; /* Ensure it takes its own line within the box */
+    color: #94A3B8;
+    text-align: left;
+    display: block;
+    margin: 0;
 }
 
 .button-description {
-    /* No specific styles needed here, parent .description-box handles layout */
-    margin: 0; /* Reset margins */
+    margin: 0;
 }
 
 button {
     width: 100%;
-    padding: 12px;
+    padding: 11px;
     border: none;
-    border-radius: 5px;
-    background-color: #00bcd4; /* Cyan button */
-    color: #1a1a2e; /* Dark text for button */
+    border-radius: 8px;
+    background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+    color: #F8FAFC;
     cursor: pointer;
-    font-size: 1em;
-    font-weight: bold;
-    transition: background-color 0.3s, box-shadow 0.3s;
-    margin-top: 10px; /* Space from checkboxes */
+    font-family: 'Exo 2', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
 }
 
 button:hover {
-    background-color: #00acc1; /* Darker cyan on hover */
-    box-shadow: 0 0 15px rgba(0, 188, 212, 0.8);
+    background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%);
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+    transform: translateY(-1px);
+}
+
+button:active {
+    transform: translateY(0px);
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
 }
 
 #userAddress {
     width: 100%;
-    padding: 8px;
-    margin: 5px 0;
-    border: 1px solid #4a4a7a;
-    border-radius: 4px;
-    font-size: 14px;
-    background-color: #3a3a5a;
-    color: #e0e0e0;
+    padding: 10px 12px;
+    border: 1.5px solid rgba(139, 92, 246, 0.3);
+    border-radius: 6px;
+    font-family: 'Exo 2', monospace;
+    font-size: 12px;
+    background-color: rgba(30, 41, 59, 0.8);
+    color: #F8FAFC;
     box-sizing: border-box;
+    transition: all 0.25s ease;
+}
+
+#userAddress::placeholder {
+    color: #64748B;
 }
 
 #userAddress:focus {
     outline: none;
-    border-color: #00bcd4;
-    box-shadow: 0 0 8px rgba(0, 188, 212, 0.5);
+    border-color: #8B5CF6;
+    background-color: rgba(30, 41, 59, 1);
+    box-shadow: 0 0 12px rgba(139, 92, 246, 0.3);
 }
 
 .address-saved-indicator {
-    color: #10b981;
+    color: #10B981;
     margin-left: 8px;
     display: none;
     font-size: 12px;
+    font-weight: 500;
+    animation: fadeIn 0.3s ease;
 }
 
 .address-saved-indicator.show {
@@ -159,4 +243,79 @@ button:hover {
 
 #addressSaved {
     font-size: 12px;
+}
+
+#endpoint-value,
+#endpoint-value-compact {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    color: #F59E0B;
+    word-break: break-all;
+    line-height: 1.4;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Accessibility & Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Focus visible for keyboard navigation */
+button:focus-visible,
+input:focus-visible,
+label:focus-visible {
+    outline: 2px solid #F59E0B;
+    outline-offset: 2px;
+}
+
+/* Improved spacing for better readability */
+.setting:first-child {
+    margin-top: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    body {
+        width: 100%;
+        border-radius: 0;
+    }
+
+    .container {
+        padding: 12px;
+    }
+
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    h2 {
+        font-size: 16px;
+    }
+
+    #nft-listener-status-compact {
+        width: 100%;
+    }
+
+    .setting {
+        padding: 12px;
+    }
+
+    button {
+        padding: 10px;
+        font-size: 13px;
+    }
 }
