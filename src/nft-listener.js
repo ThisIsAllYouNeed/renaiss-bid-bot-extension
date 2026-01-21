@@ -36,6 +36,11 @@ class NFTListener {
         this.lastTransferEvent = null;
         this.connectionTimestamp = null;
 
+        this.pollIntervalHandle = null;
+        this.lastProcessedBlock = null;
+        this.blockPollIntervalMs = 3000;
+        this.processedTxHashesForDeduplication = new Set();
+
         // Reconnection tracking
         this.reconnectTimeout = null;
         this.reconnectAttempts = 0;
@@ -150,10 +155,6 @@ class NFTListener {
         }
     }
 
-    /**
-     * Start listening to Transfer events
-     * @returns {Promise<boolean>} Success status
-     */
     async startListening() {
         console.log('[NFTListener] startListening() called');
 
@@ -168,7 +169,6 @@ class NFTListener {
 
             if (!providerHealthy) {
                 console.log('[NFTListener] Provider is not healthy, reinitializing...');
-                // Properly destroy old provider and wait for WebSocket to close
                 await this.destroyProvider();
                 const initialized = await this.initializeProvider();
                 console.log('[NFTListener] Provider reinitialization result:', initialized);
@@ -180,79 +180,37 @@ class NFTListener {
                 console.log('[NFTListener] Provider is healthy');
             }
 
-            // Create contract instance for event listening
-            console.log('[NFTListener] Creating contract instance for NFT:', MARKETPLACE_CONTRACT);
+            console.log('[NFTListener] Creating contract instance for NFT:', NFT_CONTRACT_ADDRESS);
             this.contract = new ethers.Contract(
-                MARKETPLACE_CONTRACT,
+                NFT_CONTRACT_ADDRESS,
                 TRANSFER_EVENT_ABI,
                 this.provider
             );
             console.log('[NFTListener] Contract instance created');
-            console.log('[NFTListener] Marketplace contract (for reference):', MARKETPLACE_CONTRACT);
 
-            // Set up the event listener using contract.on() - more reliable than provider.on()
-            console.log('[NFTListener] Setting up Transfer event listener via contract.on()...');
-            this.listener = (from, to, tokenId, event) => {
-                console.log('[NFTListener] *** TRANSFER EVENT RECEIVED ***');
-                console.log('[NFTListener] From:', from);
-                console.log('[NFTListener] To:', to);
-                console.log('[NFTListener] TokenId:', tokenId.toString());
-                console.log('[NFTListener] Event object:', event);
+            const currentBlock = await this.provider.getBlockNumber();
+            this.lastProcessedBlock = currentBlock;
+            console.log('[NFTListener] Starting from block:', currentBlock);
 
-                this.onTransferDetected(from, to, tokenId);
-            };
-
-            // Use contract.on('Transfer', ...) which handles subscription internally
-            try {
-                console.log('[NFTListener] Calling contract.on("Transfer", ...)...');
-                this.contract.on('Transfer', this.listener);
-                console.log('[NFTListener] contract.on() completed successfully');
-            } catch (onError) {
-                console.error('[NFTListener] Error during contract.on():', onError.message);
-                throw onError;
-            }
-
-            // Set up WebSocket disconnection detection (if using WebSocketProvider)
-            if (this.provider._websocket) {
-                console.log('[NFTListener] Setting up WebSocket event handlers...');
-                this.provider._websocket.addEventListener('close', () => {
-                    console.warn('[NFTListener] WebSocket closed unexpectedly!');
-                    this.isListening = false;
-                    if (this.hasActiveTabs()) {
-                        console.log('[NFTListener] WebSocket closed but tabs still listening, scheduling reconnect');
-                        this.scheduleReconnect();
-                    }
-                });
-                this.provider._websocket.addEventListener('error', (event) => {
-                    console.error('[NFTListener] WebSocket error:', event);
-                    this.isListening = false;
-                    if (this.hasActiveTabs()) {
-                        console.log('[NFTListener] WebSocket error occurred, scheduling reconnect');
-                        this.scheduleReconnect();
-                    }
-                });
-            }
+            this.startPolling();
 
             this.isListening = true;
             console.log('[NFTListener] isListening set to true');
 
-            console.log('[NFTListener] === Successfully started listening to Transfer events ===');
-            console.log('[NFTListener] NFT contract (log emitter):', NFT_CONTRACT_ADDRESS);
-            console.log('[NFTListener] Marketplace contract:', MARKETPLACE_CONTRACT);
+            console.log('[NFTListener] === Successfully started polling for Transfer events ===');
+            console.log('[NFTListener] NFT contract:', NFT_CONTRACT_ADDRESS);
+            console.log('[NFTListener] Poll interval:', this.blockPollIntervalMs, 'ms');
             console.log('[NFTListener] Provider:', this.provider.constructor.name);
             return true;
         } catch (error) {
             console.error('[NFTListener] === FAILED to start listening ===');
             console.error('[NFTListener] Error message:', error.message);
             console.error('[NFTListener] Full error:', error);
-            console.error('[NFTListener] Stack trace:', error.stack);
             this.isListening = false;
 
-            // Properly destroy provider on failure to force clean reconnection
             console.log('[NFTListener] Destroying provider for clean reconnection...');
             await this.destroyProvider();
 
-            // Schedule reconnection if we have active tabs
             if (this.hasActiveTabs()) {
                 console.log('[NFTListener] Scheduling reconnection attempt...');
                 this.scheduleReconnect();
@@ -262,26 +220,105 @@ class NFTListener {
         }
     }
 
-    /**
-     * Stop listening to Transfer events
-     */
-    async stopListening() {
-        if (this.contract && this.listener) {
-            // Remove the Transfer event listener from the contract
-            this.contract.off('Transfer', this.listener);
-            this.isListening = false;
-            this.connectionStatus = 'disconnected';
-            await this.updateStorageStatus();
-            console.log('[NFTListener] Stopped listening to Transfer events');
+    startPolling() {
+        if (this.pollIntervalHandle) {
+            clearInterval(this.pollIntervalHandle);
         }
 
-        // Clear any pending reconnection attempts
+        console.log('[NFTListener] Starting block polling...');
+        this.pollIntervalHandle = setInterval(() => this.pollForTransfers(), this.blockPollIntervalMs);
+        this.pollForTransfers();
+    }
+
+    async pollForTransfers() {
+        if (!this.provider || !this.contract) {
+            console.log('[NFTListener] Poll skipped - provider or contract not ready');
+            return;
+        }
+
+        try {
+            const currentBlock = await this.provider.getBlockNumber();
+            
+            if (currentBlock <= this.lastProcessedBlock) {
+                return;
+            }
+
+            const fromBlock = this.lastProcessedBlock + 1;
+            const toBlock = currentBlock;
+
+            console.log('[NFTListener] Polling blocks', fromBlock, 'to', toBlock);
+
+            const filter = this.contract.filters.Transfer();
+            const events = await this.contract.queryFilter(filter, fromBlock, toBlock);
+
+            if (events.length > 0) {
+                console.log('[NFTListener] Found', events.length, 'Transfer event(s)');
+            }
+
+            for (const event of events) {
+                const txHash = event.transactionHash;
+                const logIndex = event.index;
+                const eventKey = `${txHash}-${logIndex}`;
+
+                if (this.processedTxHashesForDeduplication.has(eventKey)) {
+                    continue;
+                }
+                this.processedTxHashesForDeduplication.add(eventKey);
+
+                if (this.processedTxHashesForDeduplication.size > 1000) {
+                    const keysArray = Array.from(this.processedTxHashesForDeduplication);
+                    this.processedTxHashesForDeduplication = new Set(keysArray.slice(-500));
+                }
+
+                const from = event.args[0];
+                const to = event.args[1];
+                const tokenId = event.args[2];
+
+                console.log('[NFTListener] *** TRANSFER EVENT DETECTED ***');
+                console.log('[NFTListener] Block:', event.blockNumber);
+                console.log('[NFTListener] TxHash:', txHash);
+                console.log('[NFTListener] From:', from);
+                console.log('[NFTListener] To:', to);
+                console.log('[NFTListener] TokenId:', tokenId.toString());
+
+                await this.onTransferDetected(from, to, tokenId);
+            }
+
+            this.lastProcessedBlock = currentBlock;
+        } catch (error) {
+            console.error('[NFTListener] Poll error:', error.message);
+            
+            if (error.message.includes('network') || error.message.includes('connection')) {
+                console.log('[NFTListener] Network error detected, scheduling reconnect...');
+                this.isListening = false;
+                this.stopPolling();
+                if (this.hasActiveTabs()) {
+                    this.scheduleReconnect();
+                }
+            }
+        }
+    }
+
+    stopPolling() {
+        if (this.pollIntervalHandle) {
+            clearInterval(this.pollIntervalHandle);
+            this.pollIntervalHandle = null;
+            console.log('[NFTListener] Polling stopped');
+        }
+    }
+
+    async stopListening() {
+        this.stopPolling();
+        this.isListening = false;
+        this.connectionStatus = 'disconnected';
+        await this.updateStorageStatus();
+        console.log('[NFTListener] Stopped listening to Transfer events');
+
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
             this.reconnectTimeout = null;
         }
 
-        // Properly destroy the provider to close WebSocket
         await this.destroyProvider();
     }
 
