@@ -236,6 +236,18 @@ class NFTListener {
             return;
         }
 
+        const WS_OPEN = 1;
+        if (this.provider._websocket && this.provider._websocket.readyState !== WS_OPEN) {
+            const wsState = this.provider._websocket.readyState;
+            console.log('[NFTListener] WebSocket not open (state:', wsState, '), stopping poll and reconnecting');
+            this.isListening = false;
+            this.stopPolling();
+            if (this.hasActiveTabs()) {
+                this.scheduleReconnect();
+            }
+            return;
+        }
+
         try {
             const currentBlock = await this.provider.getBlockNumber();
             
